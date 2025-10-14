@@ -69,7 +69,7 @@
     )
     ;; Transfer STX from sender to this contract for escrow
     (try! (stx-transfer? amount tx-sender (as-contract tx-sender)))
-    
+
     ;; Emit event for indexers/frontends
     (print {
       topic: "swap-intent-registered",
@@ -107,7 +107,8 @@
 )
 
 ;; Claim STX by revealing the preimage (completes the atomic swap)
-(define-public (swap (sender principal) (preimage (buff 64)))
+;; Note: Preimage is 32 bytes to match cross-chain compatibility with EVM
+(define-public (swap (sender principal) (preimage (buff 32)))
   (let (
       (hash (sha256 preimage))
       (swap-intent (unwrap! (get-swap-intent hash sender) ERR_UNKNOWN_SWAP_INTENT))
