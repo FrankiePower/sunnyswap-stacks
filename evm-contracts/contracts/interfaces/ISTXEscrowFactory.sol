@@ -7,7 +7,7 @@ import { IBaseEscrow } from "./IBaseEscrow.sol";
 /**
  * @title STX Escrow Factory interface for EVM-Stacks atomic swaps
  * @notice Interface for creating Stacks atomic swap escrows
- * @dev Supports both EVM→BTC and BTC→EVM swap directions
+ * @dev Supports both EVM→STACKS and STACKS→EVM swap directions
  * @custom:security-contact security@sunnyswap.io
  */
 interface ISTXEscrowFactory {
@@ -16,7 +16,7 @@ interface ISTXEscrowFactory {
     error InsufficientEscrowBalance();
 
     /**
-     * @notice Emitted when a source escrow is created (EVM→BTC)
+     * @notice Emitted when a source escrow is created (EVM→STACKS)
      * @param escrow The address of the created source escrow
      * @param hashlock The hash of the secret
      * @param maker The address of the maker
@@ -30,7 +30,7 @@ interface ISTXEscrowFactory {
     );
 
     /**
-     * @notice Emitted when a destination escrow is created (BTC→EVM)
+     * @notice Emitted when a destination escrow is created (STACKS→EVM)
      * @param escrow The address of the created destination escrow
      * @param hashlock The hash of the secret
      * @param taker The address of the taker
@@ -44,14 +44,14 @@ interface ISTXEscrowFactory {
     );
 
     /**
-     * @notice Creates a source escrow for EVM→BTC swaps
+     * @notice Creates a source escrow for EVM→STACKS swaps
      * @dev Maker creates this escrow with EVM tokens, taker will provide Stacks
      * @param immutables The escrow immutables including Stacks parameters
      */
     function createSrcEscrow(IBaseEscrow.Immutables calldata immutables) external payable;
 
     /**
-     * @notice Creates a destination escrow for BTC→EVM swaps
+     * @notice Creates a destination escrow for STACKS→EVM swaps
      * @dev Taker creates this escrow with EVM tokens, maker will provide Stacks  
      * @param immutables The escrow immutables including Stacks parameters
      */
