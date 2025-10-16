@@ -1,22 +1,33 @@
-# A Minimalistic NFT Marketplace
+# SunnySwap STX Hashed Timelock Contract (HTLC)
 
-Demonstrates a minimalistic NFT marketplace that allows users to list NFTs for sale.
+This project implements a Hashed Timelock Contract (HTLC) for STX tokens on the Stacks blockchain, enabling cross-chain atomic swaps between Stacks and EVM-compatible chains. The contract securely escrows STX, allowing swaps to be completed by revealing a preimage, or refunded after expiry.
 
-## Know your Contract
+## Contract Overview
 
-The [nft-marketplace.clar](/examples/nft-marketplace/contracts/nft-marketplace.clar) contract includes the following functionality.
+The `stx-htlc.clar` contract provides:
+- Registration of swap intents (escrow STX with hash, recipient, expiry)
+- Claiming STX by revealing the correct preimage (atomic swap completion)
+- Cancelling expired swaps and refunding STX to the sender
+- Querying swap intents and their status
 
-- `list-asset` lists an asset along with its contract
-- `transfer-nft` transfers an NFT asset from a sender to a given recipient
-- `transfer-ft` transfers fungible tokens from a sender to a given recipient
-- `get-listing` function retrieves a listing by its ID
-- `cancel-listing` cancels a listing using an asset contract
+### Key Functions
+- `register-swap-intent`: Lock STX for a swap, specifying hash, recipient, amount, and expiry
+- `swap`: Claim STX by revealing the preimage (must match hash, before expiry)
+- `cancel-swap-intent`: Refund STX after expiry if swap not completed
+- `get-swap-intent`: View swap intent details
+- `is-swap-intent-expired`: Check if a swap intent is expired
 
-To add new contracts, follow detailed instructions at [Add new Contract](https://docs.hiro.so/clarinet/how-to-guides/how-to-add-contract).
+### Architecture
+- Uses SHA256 hashes for cross-chain compatibility
+- Emits events for swap registration, completion, and cancellation
+- Designed for atomic swaps between Stacks and EVM chains
 
-> **NOTE**: To use this example with Clarinet inside [Hiro Platform](https://platform.hiro.so), you can open the terminal session inside VS code by navigating to File -> View -> Terminal.
+## Testing
+- Manual and automated tests available in `/clarity/tests/`
+- Use Clarinet console for contract interaction
 
-## Test your Contract
+## Resources
+- [Clarinet Docs](https://docs.hiro.so/tools/clarinet)
+- [Clarity Language](https://docs.stacks.co/clarity)
 
-- You can manually test your your contracts in the [Clarinet console](https://docs.hiro.so/clarinet/how-to-guides/how-to-test-contract#load-contracts-in-a-console).
-- You can programmatically test your contracts with [unit tests](https://docs.hiro.so/clarinet/how-to-guides/how-to-test-contract).
+> **Note:** This contract is for demonstration and educational purposes. Not audited for production use.

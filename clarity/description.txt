@@ -1,1 +1,1 @@
-A simple NFT marketplace implementation to list NFTs for sale.
+Implements a Hashed Timelock Contract (HTLC) for STX tokens, enabling atomic swaps between Stacks and EVM chains. Users can lock STX for swaps, claim by revealing a preimage, or refund after expiry.
