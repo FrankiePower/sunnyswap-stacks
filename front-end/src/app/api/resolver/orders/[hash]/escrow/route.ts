@@ -51,7 +51,9 @@ export async function POST(
         throw new Error("Missing resolver configuration");
       }
 
-      const provider = new ethers.JsonRpcProvider(sepoliaRpcUrl);
+      const provider = new ethers.JsonRpcProvider(sepoliaRpcUrl, undefined, {
+        staticNetwork: true,
+      });
       const resolverWallet = new ethers.Wallet(resolverPrivateKey, provider);
 
       // @ts-ignore
