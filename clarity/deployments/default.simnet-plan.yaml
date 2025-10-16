@@ -82,4 +82,9 @@ plan:
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: contracts/nft-marketplace.clar
             clarity-version: 3
+        - emulated-contract-publish:
+            contract-name: stx-htlc
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: contracts/stx-htlc.clar
+            clarity-version: 3
       epoch: "3.0"

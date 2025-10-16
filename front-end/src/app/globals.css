@@ -3,25 +3,148 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: 0 0% 100%;
+  --foreground: 240 10% 7%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 7%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 7%;
+  --primary: 28 80% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 197 52% 31%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 46%;
+  --accent: 0 0% 95%;
+  --accent-foreground: 240 10% 7%;
+  --destructive: 14 91% 56%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 6% 90%;
+  --input: 240 6% 90%;
+  --ring: 28 80% 55%;
+  --chart-1: 197 52% 44%;
+  --chart-2: 37 90% 62%;
+  --chart-3: 48 96% 76%;
+  --chart-4: 0 0% 50%;
+  --chart-5: 0 0% 60%;
+  --sidebar: 240 5% 96%;
+  --sidebar-foreground: 240 10% 7%;
+  --sidebar-primary: 28 80% 55%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 0 0% 100%;
+  --sidebar-accent-foreground: 240 10% 7%;
+  --sidebar-border: 240 6% 90%;
+  --sidebar-ring: 28 80% 55%;
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-serif: ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, monospace;
+  --radius: 0.75rem;
+  --duration: 10s;
+  --gap: 1rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+.dark {
+  --background: 300 6% 12%;
+  --foreground: 0 0% 78%;
+  --card: 0 0% 13%;
+  --card-foreground: 0 0% 78%;
+  --popover: 300 6% 12%;
+  --popover-foreground: 0 0% 78%;
+  --primary: 37 90% 62%;
+  --primary-foreground: 300 6% 12%;
+  --secondary: 197 52% 44%;
+  --secondary-foreground: 300 6% 12%;
+  --muted: 0 0% 20%;
+  --muted-foreground: 0 0% 50%;
+  --accent: 0 0% 26%;
+  --accent-foreground: 0 0% 78%;
+  --destructive: 197 52% 44%;
+  --destructive-foreground: 300 6% 12%;
+  --border: 0 0% 20%;
+  --input: 0 0% 20%;
+  --ring: 37 90% 62%;
+  --chart-1: 197 52% 44%;
+  --chart-2: 37 90% 62%;
+  --chart-3: 48 96% 76%;
+  --chart-4: 0 0% 50%;
+  --chart-5: 0 0% 60%;
+  --sidebar: 0 0% 13%;
+  --sidebar-foreground: 0 0% 78%;
+  --sidebar-primary: 37 90% 62%;
+  --sidebar-primary-foreground: 300 6% 12%;
+  --sidebar-accent: 0 0% 26%;
+  --sidebar-accent-foreground: 0 0% 78%;
+  --sidebar-border: 0 0% 20%;
+  --sidebar-ring: 37 90% 62%;
+}
+
+/* Custom text selection styling */
+::selection {
+  background-color: #e78a53;
+  color: #121113;
+}
+
+::-moz-selection {
+  background-color: #e78a53;
+  color: #121113;
+}
+
+@layer base {
+  * {
+    @apply border-border;
   }
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans), ui-monospace, monospace;
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* Marquee animations */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% - var(--gap)));
+  }
+}
+
+@keyframes marquee-vertical {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(-100% - var(--gap)));
+  }
+}
+
+/* Shiny text animation */
+@keyframes shiny-text {
+  0%,
+  90%,
+  100% {
+    background-position: calc(-100px) 0;
+  }
+  30%,
+  60% {
+    background-position: calc(100% + 100px) 0;
+  }
+}
+
+.animate-marquee {
+  animation: marquee var(--duration) linear infinite;
+}
+
+.animate-marquee-vertical {
+  animation: marquee-vertical var(--duration) linear infinite;
+}
+
+.animate-shiny-text {
+  animation: shiny-text 3s ease-in-out infinite;
 }

@@ -1,25 +1,14 @@
 [project]
-name = 'nft-marketplace'
-description = 'Demonstrates a minimalistic NFT marketplace that allows users to list NFT for sale'
+name = 'sunnyswap'
+description = 'SunnySwap - Cross-chain atomic swaps between Stacks and EVM chains'
 authors = []
 telemetry = true
 cache_dir = './.cache'
 
-[[project.requirements]]
-contract_id = 'SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9.nft-trait'
-
-[[project.requirements]]
-contract_id = 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard'
-
-[contracts.nft-marketplace]
-path = 'contracts/nft-marketplace.clar'
+[contracts.stx-htlc]
+path = 'contracts/stx-htlc.clar'
 clarity_version = 3
 epoch = 3.0
-
-[contracts.funny-dog]
-path = 'contracts/funny-dog.clar'
-clarity_version = 1
-epoch = 2.0
 
 [repl.analysis]
 passes = []

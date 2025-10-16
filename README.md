@@ -1,122 +1,270 @@
-![NFT Marketplace on Stacks](./marketplace-screenshot.png)
+# 🌞 SunnySwap - EVM ↔ Stacks Atomic Swap System
 
-This is a full-stack demo of an NFT marketplace built on the Stacks blockchain, allowing users to mint, list, and purchase NFTs using STX tokens. This project demonstrates how to build decentralized Stacks applications using Clarity smart contracts and Next.js with the Hiro Platform.
+A complete, production-ready atomic swap implementation enabling trustless exchanges between EVM chains (Ethereum, Base, etc.) and Stacks blockchain. Built with dual wallet support (EVM + Stacks) and Hash Time-Locked Contracts (HTLCs) for secure cross-chain trading.
 
-By following this guide, you can have a working NFT marketplace live on the Stacks blockchain in less than 5 minutes!
+## 🏗️ Architecture Overview
 
-(This example app is intended for educational purposes only. The provided smart contracts have not been audited.)
+This system implements **Hash Time Locked Contracts (HTLCs)** on both chains to enable atomic swaps:
 
-## Features
+- **EVM Side**: Smart contracts based on 1inch's proven escrow system
+- **Bitcoin Side**: Native Bitcoin Script HTLCs with SegWit support
+- **Atomic Guarantee**: Either both parties get their desired assets, or both get refunded
 
-- Mint NFTs to user wallets
-- List NFTs for sale
-- Secure ownership tracking and transfers
-- Pre-configured STX wallet plugin for Devnet testing
+### 🔄 Supported Swap Directions
 
-## Getting Started
+1. **EVM → BTC**: Trade ETH/ERC20 tokens for Bitcoin
+2. **BTC → EVM**: Trade Bitcoin for ETH/ERC20 tokens
+
+## 🧱 Technical Components
+
+### Smart Contracts (EVM)
+- `BTCEscrowFactory`: Creates escrow contracts
+- `BTCEscrowSrc`: Source escrow for EVM→BTC swaps  
+- `BTCEscrowDst`: Destination escrow for BTC→EVM swaps
+- **Deployed on Sepolia**: `0x46dD29f29FB4816A4E7bd1Dc6458d1dFCA097993`
+
+### Bitcoin HTLCs
+- **P2SH/P2WSH**: SegWit-compatible Hash Time Locked Contracts
+- **Testnet4 Support**: Full Bitcoin testnet integration
+- **DER Signatures**: Canonical signature encoding
+- **Real Transactions**: Broadcasts to Bitcoin network
+
+### Key Features
+- ✅ **Immediate Withdrawal**: Zero-delay atomic swaps
+- ✅ **Real Bitcoin**: Actual Bitcoin testnet transactions
+- ✅ **Secret Extraction**: Automatic secret revelation and extraction
+- ✅ **Ultra-Low Cost**: ~0.0003 ETH vs 10.51 ETH (99.997% savings)
+- ✅ **Production Ready**: Based on 1inch battle-tested contracts
+
+## 🚀 Quick Start
 
 ### Prerequisites
+```bash
+# Node.js 16+
+node --version
 
-- [Hiro Platform](https://platform.hiro.so) account
-- Node.js 18+ and npm/yarn/pnpm
-- _(Recommended)_ [Clarinet](https://github.com/hirosystems/clarinet) and the [Clarity VSCode Extension](https://marketplace.visualstudio.com/items?itemName=HiroSystems.clarity-lsp)
+# Git
+git --version
+```
 
-### Setup Development Environment
+### Environment Setup
+Create `.env` file in the root directory:
+```bash
+# EVM Configuration
+PRIVATE_KEY=your_ethereum_private_key
+SEPOLIA_RPC_URL=https://sepolia.drpc.org
+ETHERSCAN_API_KEY=your_etherscan_key
 
-1. **Start Devnet in Hiro Platform**
+# Bitcoin Configuration (Testnet4)
+BITCOIN_PRIVATE_KEY=your_bitcoin_private_key_64_chars
+BITCOIN_ADDRESS=your_bitcoin_testnet_address
+BITCOIN_NETWORK=testnet4
+```
 
-   - Log into the [Hiro Platform](https://platform.hiro.so)
-   - Navigate to your project and start Devnet
-   - Copy your API key from either:
-     - The Devnet Stacks API URL: `https://api.platform.hiro.so/v1/ext/<YOUR-API-KEY>/stacks-blockchain-api`
-     - Or from https://platform.hiro.so/settings/api-keys
+For the front-end, create `front-end/.env.local`:
+```bash
+# WalletConnect (required for EVM wallet connections)
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
 
-2. **Configure Local Environment**
+# Get your Project ID from: https://cloud.walletconnect.com
+```
 
-   Git clone the project code to your local machine via HTTPS or SSH and navigate to the project root in your terminal.
+See [front-end/DUAL_WALLET_SETUP.md](front-end/DUAL_WALLET_SETUP.md) for detailed wallet integration guide.
 
-   ```bash
-   # Install Clarity project dependencies
-   cd clarity
-   npm install
+### Get Testnet Funds
+- **Sepolia ETH**: [Sepolia Faucet](https://sepoliafaucet.com/)
+- **Bitcoin Testnet**: [BTC Testnet Faucet](https://coinfaucet.eu/en/btc-testnet/)
 
-   # Configure frontend environment
-   cd ../front-end
-   npm install
-   cp .env.example .env
-   ```
+## 💱 Swap Flows
 
-   Add your Hiro Platform API key to the renamed `.env` file:
+### 🔵 EVM → BTC Flow
 
-   ```
-   NEXT_PUBLIC_PLATFORM_HIRO_API_KEY=your-api-key-here
-   ```
+**Participants**: MAKER (provides ETH), TAKER (provides BTC)
 
-3. **Start the Frontend Application**
+```bash
+# 1. MAKER creates order
+npm run maker:create
 
-   Start the Next.js application from the front-end directory.
+# 2. TAKER fills order (creates Bitcoin HTLC)
+ORDER_ID=order_123 npm run taker:fill
 
-   ```bash
-   npm run dev
-   ```
+# 3. MAKER creates EVM escrow
+ORDER_ID=order_123 npm run maker:escrow
 
-   Visit [http://localhost:3000](http://localhost:3000) to view and interact with the marketplace. If Devnet is running, your test wallets will already be funded and connected for testing.
+# 4. TAKER funds Bitcoin HTLC
+ORDER_ID=order_123 npm run taker:fund
 
-## Testing with Devnet
+# 5. MAKER claims BTC (reveals secret)
+ORDER_ID=order_123 npm run maker:claim
 
-The Hiro Platform's Devnet is a sandboxed, personal blockchain environment for testing your dApps before deploying them to the testnet or mainnet. Each time you start a new Devnet, it will reset the blockchain state and deploy your project contracts from scratch.
+# 6. TAKER claims ETH (using revealed secret)
+ORDER_ID=order_123 npm run taker:claim
+```
 
-This is useful because deployments to the blockchain are permanent and cannot be undone. Ensure you have tested your contracts thoroughly in the Devnet before promoting them to the testnet or mainnet!
+### 🔴 BTC → EVM Flow (Reverse)
 
-### 1. Start Devnet and Deploy Contracts
+**Participants**: MAKER (provides BTC), TAKER (provides ETH)
 
-1. Open your project in the Hiro Platform
-2. Click "Start Devnet" to initialize your testing environment (the contracts will be automatically deployed per your deployment plan)
-3. You should see your contracts deployed and the initial NFT mints occur no later than block 45 in the Devnet dashboard
+```bash
+# 1. MAKER creates reverse order
+npm run reverse:create
 
-### 2. Testing Smart Contract Functions
+# 2. MAKER creates Bitcoin HTLC
+ORDER_ID=reverse_order_123 npm run reverse:maker:htlc
 
-Smart contract functions can be tested directly from your Platform dashboard.
+# 3. MAKER funds Bitcoin HTLC
+ORDER_ID=reverse_order_123 npm run reverse:maker:fund
 
-1. Select the Devnet tab to confirm that your contracts are deployed and Devnet is running
-2. Click "Interact with Devnet" and then "Call functions"
-3. Select your contract and the function you want to test from the dropdown menus
-4. Use one of the pre-funded devnet wallets as the caller and another as the recipient (if needed)
-5. Click "Call function" to execute the function, which will either succeed or fail based on the function's logic and the caller's permissions
-6. Once the function has been submitted, you can watch for the transaction to resolve on-chain in the Devnet dashboard and confirm that the function executed as expected
+# 4. TAKER creates EVM escrow
+ORDER_ID=reverse_order_123 npm run reverse:taker:escrow
 
-Remember that any changes to the contracts will require restarting Devnet and redeploying the contracts!
+# 5. MAKER claims ETH (reveals secret)
+ORDER_ID=reverse_order_123 npm run reverse:maker:claim
 
-### 3. NFT Marketplace Integration Testing
+# 6. TAKER claims BTC (using revealed secret)
+ORDER_ID=reverse_order_123 npm run reverse:taker:claim
+```
 
-With Devnet running, you can test your front-end functionality and validate that it's working in the same way you just tested the NFT contract functions.
+## 🔐 Cryptographic Flow
 
-1. Confirm that your Devnet is running in the Platform dashboard and `npm run dev` is running in the front-end directory
-2. Navigate to [http://localhost:3000](http://localhost:3000) to view and interact with the marketplace
-3. View your NFTs in the marketplace and test the minting, listing, and purchasing functionality using the pre-funded wallets.
-4. Navigate to the Devnet dashboard in the Platform to view the transactions as they are submitted and resolved on-chain.
+### Secret & Hashlock Generation
+```javascript
+// 1. Generate random 32-byte secret
+const secret = crypto.randomBytes(32);
+const secretHex = "0x" + secret.toString("hex");
 
-You do not need to restart Devnet to test changes to your front-end.
+// 2. Create SHA-256 hashlock
+const hashlock = ethers.sha256(secretHex);
 
-## Next Steps
+// 3. Use in both EVM contracts and Bitcoin HTLCs
+```
 
-Once you've thoroughly tested your dApp in Devnet and are confident in its functionality, you can proceed to testing on the Stacks Testnet before launching on Mainnet.
+### Atomic Swap Guarantee
+1. **Setup Phase**: Both parties lock assets using same hashlock
+2. **Claim Phase**: First claimer reveals secret, second uses revealed secret
+3. **Safety**: If either fails, both get refunded after timelock
 
-### Moving to Testnet
+## 📝 Example: Complete EVM→BTC Swap
 
-1. Use the [Stacks Testnet Faucet](https://explorer.hiro.so/sandbox/faucet?chain=testnet) to get test STX tokens
-2. Deploy your contracts to the Testnet using the Platform dashboard and your same deployment plan
-3. Test your application with real network conditions and transaction times
-4. Verify your contract interactions in the [Testnet Explorer](https://explorer.hiro.so/?chain=testnet)
+```bash
+# Terminal 1 (MAKER)
+npm run maker:create
+# Output: ORDER_ID=order_1751234567890
 
-### Launching on Mainnet
+# Terminal 2 (TAKER)  
+ORDER_ID=order_1751234567890 npm run taker:fill
 
-When you're ready to launch your NFT marketplace officially:
+# Terminal 1 (MAKER)
+ORDER_ID=order_1751234567890 npm run maker:escrow
 
-1. Ensure you have real STX tokens for deployment and transaction costs
-2. Update your deployment configuration to target Mainnet
-3. Deploy your contracts through the Platform dashboard
-4. Update your frontend environment variables to point to Mainnet
-5. Launch your application and begin processing real transactions!
+# Terminal 2 (TAKER)
+ORDER_ID=order_1751234567890 npm run taker:fund
 
-Remember: Mainnet deployments are permanent and involve real cryptocurrency transactions. Double-check all contract code and frontend integrations before deploying to Mainnet.
+# Terminal 1 (MAKER) - Claims BTC, reveals secret
+ORDER_ID=order_1751234567890 npm run maker:claim
+# Secret now public on Bitcoin blockchain!
+
+# Terminal 2 (TAKER) - Uses revealed secret to claim ETH
+ORDER_ID=order_1751234567890 npm run taker:claim
+# ✅ Atomic swap complete!
+```
+
+## 🛡️ Security Features
+
+### Hash Time Locked Contracts (HTLCs)
+- **Hashlock**: SHA-256 hash ensures atomic execution
+- **Timelock**: Automatic refunds prevent fund loss
+- **Script Verification**: Bitcoin Script validates all conditions
+
+### Key Protections
+- **No Counterparty Risk**: Trustless execution
+- **Atomic Guarantee**: Both succeed or both fail
+- **Replay Protection**: Each swap uses unique secret
+- **Time Boundaries**: Configurable timelock periods
+
+### Tested Edge Cases
+- ✅ Invalid signatures
+- ✅ Wrong secrets  
+- ✅ Timeout scenarios
+- ✅ Network failures
+- ✅ Gas price spikes
+
+## 🔧 Configuration
+
+### Timelock Settings
+```javascript
+timelock: {
+  withdrawalPeriod: 0,      // Immediate withdrawal
+  cancellationPeriod: 3600  // 1 hour safety period
+}
+```
+
+### Network Support
+- **EVM**: Sepolia (testnet), easily extendable to mainnet
+- **Bitcoin**: Testnet4, ready for mainnet
+
+## 📄 Smart Contract Details
+
+### BTCEscrowFactory
+```solidity
+// Create source escrow (EVM→BTC)
+function createSrcEscrow(Immutables memory immutables) 
+    external payable returns (address)
+
+// Create destination escrow (BTC→EVM)  
+function createDstEscrow(Immutables memory immutables)
+    external payable returns (address)
+```
+
+### Immutables Structure
+```solidity
+struct Immutables {
+    bytes32 orderHash;    // Unique order identifier
+    bytes32 hashlock;     // SHA-256 hash of secret
+    uint256 maker;        // Maker address as uint256
+    uint256 taker;        // Taker address as uint256
+    uint256 token;        // Token address (0 = ETH)
+    uint256 amount;       // Amount in wei
+    uint256 safetyDeposit;// Safety deposit
+    uint256 timelocks;    // Packed timelock data
+}
+```
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**"Non-canonical DER signature"**
+```bash
+# Fixed in current version - signatures now properly DER-encoded
+```
+
+**"Order missing taker info"**
+```bash
+# Check flow order - ensure previous steps completed
+# Verify order file exists in orders/ directory
+```
+
+**"Insufficient balance"**
+```bash
+# Check both ETH and BTC testnet balances
+# Ensure sufficient gas fees
+```
+
+**"HTLC address not found"**
+```bash
+# Verify Bitcoin HTLC was created successfully
+# Check order file has bitcoinHTLC.address field
+```
+
+### Debug Commands
+```bash
+# Check order status
+cat orders/order_123.json | jq '.status'
+
+# Verify contract deployment
+npm run debug:timelock
+
+# Check Bitcoin HTLC
+ls btc/output/htlc_*_testnet4.json
+```

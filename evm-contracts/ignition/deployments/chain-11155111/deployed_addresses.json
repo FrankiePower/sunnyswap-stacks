@@ -1,0 +1,5 @@
+{
+  "STXEscrowFactoryModule#MockERC20": "0xBF6aF2FB20924cF54912887885d896E5fCFE04e3",
+  "STXEscrowFactoryModule#STXEscrowFactory": "0x506485C554E2eFe0AA8c22109aAc021A1f28888B",
+  "ResolverModule#Resolver": "0x70060F694e4Ba48224FcaaE7eB20e81ec4461C8D"
+}
