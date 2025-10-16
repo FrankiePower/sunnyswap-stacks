@@ -1,35 +1,28 @@
-import type { Metadata } from 'next';
-import localFont from 'next/font/local';
-import './globals.css';
-import { Providers } from '@/components/ui/provider';
-import { Navbar } from '@/components/Navbar';
 
-const geistSans = localFont({
-  src: './fonts/GeistVF.woff',
-  variable: '--font-geist-sans',
-  weight: '100 900',
-});
-const geistMono = localFont({
-  src: './fonts/GeistMonoVF.woff',
-  variable: '--font-geist-mono',
-  weight: '100 900',
-});
+import type React from "react"
+import type { Metadata } from "next"
+import { GeistSans } from "geist/font/sans"
+import { GeistMono } from "geist/font/mono"
+import { Providers } from '@/components/ui/provider';
+import "./globals.css"
+
+export const metadata: Metadata = {
+  title: "SunnySwap - Cross-Chain Atomic Swaps Between EVM and Stacks",
+  description: "Seamlessly execute trustless atomic swaps between EVM chains and Stacks blockchain with SunnySwap. Secure, decentralized cross-chain trading.",
+}
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en" className={`dark ${GeistSans.variable} ${GeistMono.variable}`}>
+      <body className={`dark ${GeistSans.className}`}>
         <Providers>
-          <>
-            <Navbar />
-            {children}
-          </>
+          {children}
         </Providers>
       </body>
     </html>
-  );
+  )
 }
