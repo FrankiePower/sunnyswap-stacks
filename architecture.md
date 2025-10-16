@@ -2,7 +2,7 @@
 
 ## Overview
 
-SunnySwap is a cross-chain atomic swap protocol enabling trustless swaps between **Stacks (STX)** and **EVM-compatible chains**. It adapts the GattaiSwap architecture by replacing Bitcoin HTLC scripts with Clarity smart contracts.
+SunnySwap is a cross-chain atomic swap protocol enabling trustless swaps between **Stacks (STX)** and **EVM-compatible chains**.
 
 **Tagline**: Cross-chain swaps between Stacks and EVM chains using Hash Time-Locked Contracts (HTLCs).
 
@@ -25,17 +25,9 @@ The foundation contract providing atomic swap primitives on Stacks.
 {sender: principal, hash: (buff 32)} -> {expiration-height: uint, amount: uint, recipient: principal}
 ```
 
-**Advantages over Bitcoin Scripts:**
-- Direct recipient specification (no script limitation)
-- Block height timelocks (simpler than BIP68/CLTV)
-- Smart contract flexibility (easier upgrades/extensions)
-- Clarity safety guarantees (decidable, no reentrancy)
-
 ---
 
 ### 2. EVM Layer (Solidity Smart Contracts)
-
-Reused from GattaiSwap's battle-tested implementation:
 
 #### Resolver Contract
 - `deploySrc()` - Creates escrow on source chain
@@ -49,21 +41,17 @@ Reused from GattaiSwap's battle-tested implementation:
 - Handles cross-chain coordination
 
 #### Supporting Contracts
-- Limit Order Protocol (1inch)
 - ERC20 token interfaces
-- WETH9 for native token wrapping
 
 **Deployed Chains:**
-- Monad Testnet
-- Etherlink Testnet
+- Sepolia Ethereum
 - (Extensible to any EVM chain)
 
 ---
 
 ### 3. SDK Layer
 
-#### STX SDK (To Be Built)
-Mirrors GattaiSwap's BTC SDK structure:
+#### STX SDK
 
 ```typescript
 // Core types
@@ -86,7 +74,7 @@ function claimSwap(sender: string, preimage: Buffer): Promise<SignedTx>
 function cancelSwap(hash: Buffer): Promise<SignedTx>
 ```
 
-#### EVM SDK (Reused from GattaiSwap)
+#### EVM SDK
 - Escrow factory interactions
 - Resolver operations
 - Cross-chain order creation
@@ -126,8 +114,6 @@ Acts as the counterparty/market maker:
 ---
 
 ### 5. Frontend (Next.js)
-
-Adapted from GattaiSwap UI:
 
 **Key Pages:**
 - `/` - Swap interface (select chains, tokens, amounts)
@@ -218,7 +204,7 @@ Adapted from GattaiSwap UI:
 - **Stacks**: Uses SHA256 in Clarity (`sha256` function)
 - **EVM**: Uses keccak256 by default
 - **CRITICAL**: Must use SHA256 on both chains for compatibility
-- GattaiSwap uses SHA256 for Bitcoin compatibility - we maintain this
+- Evm side uses SHA256 for Stacks compatibility - we maintain this
 
 ### Timelock Coordination
 - **Stacks**: Block height based (e.g., expires at block 1000)
@@ -237,7 +223,7 @@ Stacks contract already includes sender in map key:
 This prevents same hash from being reused by different senders.
 
 ### Recipient Enforcement
-Unlike Bitcoin scripts, Clarity can enforce recipient:
+Clarity can enforce recipient:
 ```clarity
 (get recipient swap-intent)
 ```
@@ -247,24 +233,17 @@ Only designated recipient can claim funds.
 
 ## Technical Architecture Decisions
 
-### Why Reuse GattaiSwap EVM Contracts?
+### EVM Contracts?
 ✅ Battle-tested in hackathon/production
 ✅ 1inch Fusion+ compatible architecture
 ✅ Deterministic escrow addresses
 ✅ Clean resolver pattern
 ✅ Already deployed on target chains
 
-### Why Build Custom STX SDK?
-✅ Stacks has different RPC interface than Bitcoin
-✅ Clarity contract calls vs Bitcoin scripts
-✅ Different transaction signing (Stacks vs Bitcoin)
-✅ Need Stacks-specific wallet integration
-
 ### Why Keep Relayer/Resolver Pattern?
 ✅ Proven UX (users don't manage complex flows)
 ✅ Resolver provides liquidity and speed
 ✅ Relayer coordinates cross-chain state
-✅ Matches GattaiSwap mental model
 
 ---
 
@@ -310,7 +289,7 @@ sunnyswap-stacks/
 │   │   └── stx-htlc_test.clar # Unit tests
 │   └── Clarinet.toml          # Clarinet config
 │
-├── contracts/evm/              # EVM smart contracts (from GattaiSwap)
+├── contracts/evm/              # EVM smart contracts
 │   ├── src/
 │   │   ├── Resolver.sol
 │   │   └── test/
@@ -322,7 +301,7 @@ sunnyswap-stacks/
 │   │   ├── provider.ts
 │   │   ├── htlc.ts
 │   │   └── wallet.ts
-│   └── evm/                   # EVM SDK (from GattaiSwap)
+│   └── evm/                   # EVM SDK
 │       ├── resolver.ts
 │       ├── escrow-factory.ts
 │       └── contracts/
@@ -363,13 +342,13 @@ sunnyswap-stacks/
 - 🔲 Test suite for Clarity contract
 
 ### Phase 2: Integration
-- 🔲 Copy GattaiSwap EVM contracts
+- 🔲 EVM contracts
 - 🔲 Adapt relayer API for STX
 - 🔲 Build STX ↔ EVM integration tests
 - 🔲 Local development environment
 
 ### Phase 3: Frontend
-- 🔲 Copy GattaiSwap UI
+- 🔲 UI
 - 🔲 Replace BTC wallet with STX wallet
 - 🔲 Update swap flow for STX
 - 🔲 Status tracking UI
@@ -379,22 +358,6 @@ sunnyswap-stacks/
 - 🔲 Deploy resolver bot
 - 🔲 End-to-end testing
 - 🔲 Documentation & examples
-
----
-
-## Key Differences from GattaiSwap
-
-| Aspect | GattaiSwap (BTC) | SunnySwap (STX) |
-|--------|------------------|-----------------|
-| **Chain** | Bitcoin | Stacks |
-| **Contract Language** | Bitcoin Script | Clarity |
-| **HTLC Type** | Script-based | Smart contract |
-| **Timelock** | BIP68 (relative/absolute) | Block height |
-| **Recipient** | Not enforceable | Enforced in contract |
-| **Transaction Model** | UTXO | Account-based |
-| **Wallet Integration** | Bitcoin wallets | Stacks wallets |
-| **Hash Function** | SHA256 | SHA256 (matching) |
-| **Testing** | Manual/Script | Clarinet unit tests |
 
 ---
 
@@ -414,7 +377,6 @@ sunnyswap-stacks/
 - Partial fills
 - Dutch auction pricing
 - MEV protection
-- Chain abstraction via NEAR (like GattaiSwap)
 
 ### Decentralization
 - Multiple resolvers (competition)
@@ -425,23 +387,13 @@ sunnyswap-stacks/
 
 ## Resources
 
-### Reference Implementations
-- GattaiSwap: `/Users/user/SuperFranky/2025-unite`
-- STX-HTLC: `/Users/user/SuperFranky/stx-atomic-swap`
-
 ### Documentation
 - [Clarinet Docs](https://docs.hiro.so/tools/clarinet)
 - [Stacks.js](https://docs.hiro.so/stacks.js)
 - [1inch Fusion+](https://docs.1inch.io/docs/fusion-swap/introduction)
 - [Clarity Language](https://docs.stacks.co/clarity)
 
-### Key Files from GattaiSwap
-- BTC SDK: `/2025-unite/chains/sdk/btc/index.ts`
-- EVM Resolver: `/2025-unite/chains/contracts/evm/src/Resolver.sol`
-- Swap Tests: `/2025-unite/chains/tests/btc.spec.ts`
-- Frontend: `/2025-unite/app/src/app/page.tsx`
-
 ---
 
-**Last Updated**: 2025-10-13
+**Last Updated**: 2025-10-16
 **Status**: Architecture defined, starting implementation
