@@ -51,15 +51,8 @@ export async function POST(
         throw new Error("Missing resolver configuration");
       }
 
-      // Use explicit network to avoid auto-detection timeout
-      const network = {
-        chainId: 11155111,
-        name: 'sepolia',
-      };
-      const provider = new ethers.JsonRpcProvider(sepoliaRpcUrl, network, {
-        staticNetwork: true,
-        batchMaxCount: 1,
-      });
+      // Pass chainId directly to prevents network detection timeout
+      const provider = new ethers.JsonRpcProvider(sepoliaRpcUrl, srcChainId);
       const resolverWallet = new ethers.Wallet(resolverPrivateKey, provider);
 
       // @ts-ignore
