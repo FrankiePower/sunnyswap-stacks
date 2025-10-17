@@ -3,8 +3,8 @@
  * Recovers locked STX tokens after expiration
  */
 
-import { ContractCallRegularOptions, PostConditionMode } from '@stacks/connect';
-import { bufferCV, Pc, AnchorMode } from '@stacks/transactions';
+import { ContractCallRegularOptions } from '@stacks/connect';
+import { bufferCV, Pc, AnchorMode, PostConditionMode } from '@stacks/transactions';
 import { CancelSwapParams } from './types';
 import { validateHash } from './utils';
 
@@ -95,7 +95,7 @@ export function buildCancelSwapIntentWithPostCondition(
     throw new Error('Invalid hash: must be exactly 32 bytes');
   }
 
-  if (expectedAmount <= 0n) {
+  if (expectedAmount <= BigInt(0)) {
     throw new Error('Expected amount must be greater than 0');
   }
 

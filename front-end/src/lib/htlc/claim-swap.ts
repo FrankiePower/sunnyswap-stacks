@@ -3,8 +3,8 @@
  * Reveals the secret preimage to claim locked STX tokens
  */
 
-import { ContractCallRegularOptions, PostConditionMode } from '@stacks/connect';
-import { bufferCV, principalCV, Pc, AnchorMode } from '@stacks/transactions';
+import { ContractCallRegularOptions } from '@stacks/connect';
+import { bufferCV, principalCV, Pc, AnchorMode, PostConditionMode } from '@stacks/transactions';
 import { ClaimSwapParams } from './types';
 import { validatePreimage } from './utils';
 
@@ -97,7 +97,7 @@ export function buildClaimSwapWithPostCondition(
     throw new Error('Invalid preimage: must be exactly 32 bytes');
   }
 
-  if (expectedAmount <= 0n) {
+  if (expectedAmount <= BigInt(0)) {
     throw new Error('Expected amount must be greater than 0');
   }
 

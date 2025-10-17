@@ -1,5 +1,5 @@
 {
-  "name": "nft-marketplace-dapp",
+  "name": "sunnyswap-stacks",
   "private": true,
   "workspaces": [
     "clarity",

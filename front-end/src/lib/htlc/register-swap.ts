@@ -3,13 +3,14 @@
  * Creates a new HTLC swap intent on Stacks, locking STX tokens
  */
 
-import { ContractCallRegularOptions, PostConditionMode } from '@stacks/connect';
+import { ContractCallRegularOptions } from '@stacks/connect';
 import {
   bufferCV,
   uintCV,
   principalCV,
   Pc,
   AnchorMode,
+  PostConditionMode,
 } from '@stacks/transactions';
 import { RegisterSwapParams } from './types';
 import { validateHash } from './utils';
@@ -61,7 +62,7 @@ export function buildRegisterSwapIntent(
   }
 
   // Validate amount
-  if (amount <= 0n) {
+  if (amount <= BigInt(0)) {
     throw new Error('Amount must be greater than 0');
   }
 

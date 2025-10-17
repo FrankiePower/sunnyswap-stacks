@@ -26,6 +26,7 @@ export function getContractAddress(
   chainId: number,
   contractName: keyof typeof CONTRACT_ADDRESSES[typeof SEPOLIA_CHAIN_ID]
 ): string | undefined {
+  // @ts-expect-error - Dynamic chain ID indexing
   return CONTRACT_ADDRESSES[chainId]?.[contractName];
 }
 

@@ -1,32 +1,17 @@
 'use client';
 
-import { Box, Button, Container, Flex, Link } from '@chakra-ui/react';
-import { useContext, useCallback } from 'react';
+import { Box, Container, Flex, Link } from '@chakra-ui/react';
+import { useContext } from 'react';
 import { HiroWalletContext } from './HiroWalletProvider';
 import { useDevnetWallet } from '@/lib/devnet-wallet-context';
 import { DevnetWalletButton } from './DevnetWalletButton';
 import { ConnectWalletButton } from './ConnectWallet';
 import { NetworkSelector } from './NetworkSelector';
-import { isDevnetEnvironment, useNetwork } from '@/lib/use-network';
+import { isDevnetEnvironment } from '@/lib/use-network';
 
 export const Navbar = () => {
   const { isWalletConnected } = useContext(HiroWalletContext);
   const { currentWallet, wallets, setCurrentWallet } = useDevnetWallet();
-  const network = useNetwork();
-
-  const handleConnect = useCallback(async () => {
-    if (!isWalletConnected) {
-      try {
-        const { connect } = await import('@stacks/connect');
-        // In the latest API, connect() doesn't take appDetails directly
-        // It's now handled through the request method with forceWalletSelect option
-        await connect();
-        window.location.reload();
-      } catch (error) {
-        console.error('Failed to load @stacks/connect:', error);
-      }
-    }
-  }, [isWalletConnected]);
 
   return (
     <Box as="nav" bg="white" boxShadow="sm">
@@ -52,13 +37,13 @@ export const Navbar = () => {
             </Flex>
             <Link href="/" textDecoration="none">
               <Box fontSize="lg" fontWeight="bold" color="gray.900" ml={4}>
-                NFT Marketplace
+                SunnySwap
               </Box>
             </Link>
           </Flex>
           <Flex align="center" gap={4}>
-            <Link href="/my-nfts">
-              <Box>My NFTs</Box>
+            <Link href="/dapp">
+              <Box>Swap</Box>
             </Link>
             <NetworkSelector />
             {isDevnetEnvironment() ? (

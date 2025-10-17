@@ -6,37 +6,37 @@ const painPoints = [
     icon: AlertTriangle,
     title: "Bridge Hacks are Rising",
     body: "Over $2.5B stolen from cross-chain bridges in the last 2 years. Centralized bridges are honeypots for hackers.",
-    type: "problem"
+    type: "problem" as const
   },
   {
     icon: Lock,
     title: "Custody Risks Everywhere",
     body: "Traditional bridges require you to trust third parties with your assets. Your keys, their coins.",
-    type: "problem"
+    type: "problem" as const
   },
   {
     icon: Shield,
     title: "Atomic Swaps Change Everything",
     body: "Either both sides complete or neither does. No middle-man, no custody, no trust required. Pure cryptographic security.",
-    type: "solution"
+    type: "solution" as const
   },
   {
     icon: Link2,
     title: "EVM ↔ Stacks Finally Connected",
     body: "First trustless atomic swap protocol connecting Ethereum ecosystem with Bitcoin's smart contract layer via Stacks.",
-    type: "solution"
+    type: "solution" as const
   },
   {
     icon: BadgeCheck,
     title: "Non-Custodial by Design",
     body: "You control your private keys throughout the entire swap. Assets never leave your wallet until the swap completes.",
-    type: "solution"
+    type: "solution" as const
   },
   {
     icon: Zap,
     title: "The Future of Cross-Chain",
     body: "No wrapped tokens, no liquidity pools, no MEV. Just direct peer-to-peer atomic swaps across chains.",
-    type: "solution"
+    type: "solution" as const
   },
 ]
 

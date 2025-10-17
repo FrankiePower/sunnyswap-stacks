@@ -3,7 +3,15 @@
  * Read-only contract calls to query swap intent state
  */
 
-import { cvToValue, bufferCV, principalCV } from '@stacks/transactions';
+import {
+  cvToValue,
+  bufferCV,
+  principalCV,
+  serializeCV,
+  deserializeCV,
+  ClarityValue,
+  ClarityType,
+} from '@stacks/transactions';
 import { getApi } from '../stacks-api';
 import { Network } from '../network';
 import { QuerySwapParams, SwapIntent } from './types';
@@ -14,6 +22,22 @@ import { QuerySwapParams, SwapIntent } from './types';
  */
 const CONTRACT_DEPLOYER = 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM'; // Devnet deployer
 const CONTRACT_NAME = 'stx-htlc';
+
+/**
+ * Helper to parse read-only function response
+ */
+interface ReadOnlyResponse {
+  okay: boolean;
+  result?: string;
+}
+
+const parseReadOnlyResponse = ({ result }: ReadOnlyResponse): ClarityValue | undefined => {
+  if (result === undefined) return undefined;
+  const hex = result.slice(2);
+  const bufferCv = Buffer.from(hex, 'hex');
+  const clarityValue = deserializeCV(bufferCv);
+  return clarityValue;
+};
 
 /**
  * Get swap intent details from contract
@@ -27,36 +51,49 @@ export async function getSwapIntent(
 ): Promise<SwapIntent | null> {
   const { hash, sender } = params;
 
-  const api = getApi(network);
+  const api = getApi(network).smartContractsApi;
   const contractAddress = CONTRACT_DEPLOYER;
   const contractName = CONTRACT_NAME;
   const functionName = 'get-swap-intent';
 
   try {
-    const result = await api.smartContractsApi.callReadOnlyFunction({
+    const response = await api.callReadOnlyFunction({
       contractAddress,
       contractName,
       functionName,
       readOnlyFunctionArgs: {
-        sender: principalCV(sender).serialize().toString('hex'),
-        arguments: [bufferCV(Buffer.from(hash)).serialize().toString('hex')],
+        sender: contractAddress,
+        arguments: [
+          `0x${serializeCV(bufferCV(hash)).toString()}`,
+          `0x${serializeCV(principalCV(sender)).toString()}`,
+        ],
       },
     });
 
     // Parse Clarity value response
-    const clarityValue = cvToValue(result.result);
+    const clarityValue = parseReadOnlyResponse(response);
 
-    // If none, swap doesn't exist
-    if (clarityValue === null || clarityValue.type === 'none') {
+    // If none or undefined, swap doesn't exist
+    if (!clarityValue || clarityValue.type === ClarityType.OptionalNone) {
       return null;
     }
 
-    // Extract swap intent data from tuple
-    const swapData = clarityValue.value;
+    // Unwrap optional if present
+    let cv: ClarityValue = clarityValue;
+    if (clarityValue.type === ClarityType.OptionalSome) {
+      cv = clarityValue.value;
+    }
+
+    if (cv.type !== ClarityType.Tuple) {
+      return null;
+    }
+
+    // Extract swap intent data from tuple using cvToValue
+    const swapData = cvToValue(cv);
     return {
-      expirationHeight: BigInt(swapData['expiration-height'].value),
-      amount: BigInt(swapData.amount.value),
-      recipient: swapData.recipient.value,
+      expirationHeight: BigInt(swapData['expiration-height']),
+      amount: BigInt(swapData.amount),
+      recipient: swapData.recipient,
     };
   } catch (error) {
     console.error('Error querying swap intent:', error);
@@ -73,24 +110,29 @@ export async function getSwapIntent(
 export async function hasSwapIntent(params: QuerySwapParams, network: Network): Promise<boolean> {
   const { hash, sender } = params;
 
-  const api = getApi(network);
+  const api = getApi(network).smartContractsApi;
   const contractAddress = CONTRACT_DEPLOYER;
   const contractName = CONTRACT_NAME;
   const functionName = 'has-swap-intent';
 
   try {
-    const result = await api.smartContractsApi.callReadOnlyFunction({
+    const response = await api.callReadOnlyFunction({
       contractAddress,
       contractName,
       functionName,
       readOnlyFunctionArgs: {
-        sender: principalCV(sender).serialize().toString('hex'),
-        arguments: [bufferCV(Buffer.from(hash)).serialize().toString('hex')],
+        sender: contractAddress,
+        arguments: [
+          `0x${serializeCV(bufferCV(hash)).toString()}`,
+          `0x${serializeCV(principalCV(sender)).toString()}`,
+        ],
       },
     });
 
-    const clarityValue = cvToValue(result.result);
-    return clarityValue === true;
+    const clarityValue = parseReadOnlyResponse(response);
+    if (!clarityValue) return false;
+
+    return cvToValue(clarityValue) === true;
   } catch (error) {
     console.error('Error checking swap intent existence:', error);
     throw error;
@@ -106,24 +148,29 @@ export async function hasSwapIntent(params: QuerySwapParams, network: Network): 
 export async function isSwapExpired(params: QuerySwapParams, network: Network): Promise<boolean> {
   const { hash, sender } = params;
 
-  const api = getApi(network);
+  const api = getApi(network).smartContractsApi;
   const contractAddress = CONTRACT_DEPLOYER;
   const contractName = CONTRACT_NAME;
   const functionName = 'is-swap-intent-expired';
 
   try {
-    const result = await api.smartContractsApi.callReadOnlyFunction({
+    const response = await api.callReadOnlyFunction({
       contractAddress,
       contractName,
       functionName,
       readOnlyFunctionArgs: {
-        sender: principalCV(sender).serialize().toString('hex'),
-        arguments: [bufferCV(Buffer.from(hash)).serialize().toString('hex')],
+        sender: contractAddress,
+        arguments: [
+          `0x${serializeCV(bufferCV(hash)).toString()}`,
+          `0x${serializeCV(principalCV(sender)).toString()}`,
+        ],
       },
     });
 
-    const clarityValue = cvToValue(result.result);
-    return clarityValue === true;
+    const clarityValue = parseReadOnlyResponse(response);
+    if (!clarityValue) return false;
+
+    return cvToValue(clarityValue) === true;
   } catch (error) {
     console.error('Error checking swap expiration:', error);
     throw error;

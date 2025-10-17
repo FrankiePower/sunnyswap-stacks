@@ -1,5 +1,5 @@
 'use client';
-import { Box, Button, Flex, Icon, Text, Tooltip, IconButton } from '@chakra-ui/react';
+import { Button, Flex, Icon, Text, Tooltip, IconButton } from '@chakra-ui/react';
 import { useContext, useState } from 'react';
 import { HiroWalletContext } from './HiroWalletProvider';
 import { RiFileCopyLine, RiCloseLine } from 'react-icons/ri';

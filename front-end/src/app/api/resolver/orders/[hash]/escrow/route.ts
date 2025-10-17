@@ -55,7 +55,7 @@ export async function POST(
       const provider = new ethers.JsonRpcProvider(sepoliaRpcUrl, srcChainId);
       const resolverWallet = new ethers.Wallet(resolverPrivateKey, provider);
 
-      // @ts-ignore
+      // @ts-expect-error - Dynamic chain ID access
       const factoryAddress = CONTRACT_ADDRESSES[srcChainId].stxEscrowFactory;
       const factory = new ethers.Contract(
         factoryAddress,
@@ -75,7 +75,6 @@ export async function POST(
       const dstPublicWithdrawal = order.timelock.withdrawalPeriod * 2;
       const dstCancellation = order.timelock.cancellationPeriod;
 
-      // @ts-ignore - BigInt literals
       const timelocks = (BigInt(now) << BigInt(224)) |
                        (BigInt(dstCancellation) << BigInt(64)) |
                        (BigInt(dstPublicWithdrawal) << BigInt(32)) |

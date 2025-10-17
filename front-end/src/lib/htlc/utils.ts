@@ -13,6 +13,7 @@ export function generateSecret(): Uint8Array {
     window.crypto.getRandomValues(secret);
   } else {
     // Fallback for Node.js environment
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const crypto = require('crypto');
     const bytes = crypto.randomBytes(32);
     secret.set(bytes);
@@ -37,6 +38,7 @@ export async function hashSecret(secret: Uint8Array): Promise<Uint8Array> {
     return new Uint8Array(hashBuffer);
   } else {
     // Node.js environment
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const crypto = require('crypto');
     const hash = crypto.createHash('sha256');
     hash.update(secret);

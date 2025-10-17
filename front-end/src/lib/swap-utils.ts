@@ -31,9 +31,9 @@ export function packTimelocks(
   dstCancellation: number
 ): bigint {
   return (
-    (BigInt(deployedAt) << 224n) |
-    (BigInt(dstCancellation) << 64n) |
-    (BigInt(dstPublicWithdrawal) << 32n) |
+    (BigInt(deployedAt) << BigInt(224)) |
+    (BigInt(dstCancellation) << BigInt(64)) |
+    (BigInt(dstPublicWithdrawal) << BigInt(32)) |
     BigInt(dstWithdrawal)
   );
 }
@@ -135,6 +135,6 @@ export function parseAmount(amount: string, decimals: number = 18): bigint {
   try {
     return ethers.parseUnits(amount, decimals);
   } catch {
-    return 0n;
+    return BigInt(0);
   }
 }
