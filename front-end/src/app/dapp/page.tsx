@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { ArrowUpDown, Settings, Info, ChevronDown } from 'lucide-react';
 import { useDevnetWallet } from '@/lib/devnet-wallet-context';
 import { isDevnetEnvironment } from '@/lib/use-network';
@@ -17,63 +17,9 @@ import { useContracts } from '@/hooks/useContracts';
 import { generateSecretAndHashlock, generateOrderId, parseAmount } from '@/lib/swap-utils';
 import { ethers } from 'ethers';
 import type { AtomicSwapOrder } from '@/types/order';
-
-
-// Mock token data
-const mockTokens = [
-  {
-    symbol: 'ETH',
-    name: 'Ethereum',
-    icon: '⟠',
-    balance: '2.5',
-    address: '0x0000000000000000000000000000000000000000',
-  },
-  {
-    symbol: 'STX',
-    name: 'Stacks',
-    icon: '◈',
-    balance: '1500',
-    address: '0x0000000000000000000000000000000000000001',
-  },
-  {
-    symbol: 'USDC',
-    name: 'USD Coin',
-    icon: '💵',
-    balance: '1000',
-    address: '0x0000000000000000000000000000000000000002',
-  },
-];
-
-// Mock recent swaps
-const mockRecentSwaps = [
-  {
-    from: 'ETH',
-    to: 'STX',
-    amount: '0.5 ETH',
-    status: 'completed',
-    time: '2 mins ago',
-    transactionHash: '0x1234567890abcdef1234567890abcdef12345678',
-    userAddress: '0xabcdef1234567890abcdef1234567890abcdef12',
-  },
-  {
-    from: 'STX',
-    to: 'USDC',
-    amount: '500 STX',
-    status: 'completed',
-    time: '15 mins ago',
-    transactionHash: '0xabcdef1234567890abcdef1234567890abcdef12',
-    userAddress: '0x1234567890abcdef1234567890abcdef12345678',
-  },
-  {
-    from: 'USDC',
-    to: 'ETH',
-    amount: '300 USDC',
-    status: 'pending',
-    time: '1 hour ago',
-    transactionHash: '0x9876543210fedcba9876543210fedcba98765432',
-    userAddress: '0xfedcba9876543210fedcba9876543210fedcba98',
-  },
-];
+import { useBalances } from '@/hooks/useBalances';
+import { usePriceConversion } from '@/hooks/usePriceConversion';
+import { useOrderHistory, formatTimeAgo } from '@/hooks/useOrderHistory';
 
 export default function SunnySwap() {
   const { currentWallet, wallets, setCurrentWallet } = useDevnetWallet();
@@ -84,8 +30,13 @@ export default function SunnySwap() {
   const evmSigner = useEthersSigner();
   const contracts = useContracts();
 
-  const [fromToken, setFromToken] = useState(mockTokens[0]);
-  const [toToken, setToToken] = useState(mockTokens[1]);
+  // Use real data hooks
+  const { tokens, isLoading: isLoadingBalances } = useBalances();
+  const { convert, priceData, isLoading: isLoadingPrices } = usePriceConversion();
+  const { orders: orderHistory, isLoading: isLoadingHistory } = useOrderHistory();
+
+  const [fromToken, setFromToken] = useState(tokens[0]);
+  const [toToken, setToToken] = useState(tokens[1]);
   const [fromAmount, setFromAmount] = useState('');
   const [toAmount, setToAmount] = useState('');
   const [slippage, setSlippage] = useState(0.5);
@@ -99,6 +50,35 @@ export default function SunnySwap() {
   const [showConnectModal, setShowConnectModal] = useState(false);
 
   const isEvmConnected = !!evmSigner;
+
+  // Update selected tokens when real balances load
+  useEffect(() => {
+    if (tokens.length > 0 && !fromToken) {
+      setFromToken(tokens[0]);
+    }
+    if (tokens.length > 1 && !toToken) {
+      setToToken(tokens[1]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tokens.length]);
+
+  // Update token balances when they change (but avoid infinite loop)
+  useEffect(() => {
+    if (tokens.length > 0 && fromToken && toToken) {
+      // Update fromToken balance if it exists in the new tokens array
+      const updatedFromToken = tokens.find(t => t.symbol === fromToken.symbol);
+      if (updatedFromToken && updatedFromToken.balance !== fromToken.balance) {
+        setFromToken(updatedFromToken);
+      }
+
+      // Update toToken balance if it exists in the new tokens array
+      const updatedToToken = tokens.find(t => t.symbol === toToken.symbol);
+      if (updatedToToken && updatedToToken.balance !== toToken.balance) {
+        setToToken(updatedToToken);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tokens.map(t => t.balance).join(',')]);
 
   const handleConnectEVM = () => {
     if (openConnectModal) {
@@ -250,8 +230,8 @@ export default function SunnySwap() {
     selectedToken,
     onSelect,
   }: {
-    selectedToken: typeof mockTokens[0];
-    onSelect: (token: typeof mockTokens[0]) => void;
+    selectedToken: typeof tokens[0];
+    onSelect: (token: typeof tokens[0]) => void;
   }) => (
     <div className="relative group">
       <button className="flex items-center gap-2 px-4 py-3 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 rounded-xl transition-all min-w-[140px] justify-between">
@@ -265,7 +245,7 @@ export default function SunnySwap() {
       <div className="absolute top-full mt-2 right-0 w-80 bg-black/95 border border-orange-500/30 rounded-2xl p-4 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 backdrop-blur-xl">
         <h3 className="font-semibold text-lg mb-3 text-white">Select a token</h3>
         <div className="space-y-2">
-          {mockTokens.map(token => (
+          {tokens.map(token => (
             <button
               key={token.symbol}
               className="w-full flex items-center justify-between p-3 hover:bg-orange-500/10 rounded-xl transition-all border border-transparent hover:border-orange-500/30"
@@ -385,11 +365,13 @@ export default function SunnySwap() {
                     value={fromAmount}
                     onChange={e => {
                       setFromAmount(e.target.value);
-                      if (e.target.value) {
+                      if (e.target.value && !isLoadingPrices) {
                         const inputAmount = parseFloat(e.target.value);
-                        const feeAmount = inputAmount * 0.02;
-                        const outputAmount = inputAmount - feeAmount;
-                        setToAmount(outputAmount.toFixed(4));
+                        // Convert using real prices
+                        const converted = convert(inputAmount, fromToken.symbol as 'ETH' | 'STX', toToken.symbol as 'ETH' | 'STX');
+                        // Apply 2% protocol fee
+                        const outputAmount = converted * 0.98;
+                        setToAmount(outputAmount.toFixed(6));
                       } else {
                         setToAmount('');
                       }
@@ -431,11 +413,13 @@ export default function SunnySwap() {
             </div>
 
             {/* Price Info */}
-            {fromAmount && toAmount && (
+            {fromAmount && toAmount && priceData && (
               <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Rate</span>
-                  <span className="text-white">1 {fromToken.symbol} ≈ 0.98 {toToken.symbol}</span>
+                  <span className="text-white">
+                    1 {fromToken.symbol} ≈ {convert(1, fromToken.symbol as 'ETH' | 'STX', toToken.symbol as 'ETH' | 'STX').toFixed(6)} {toToken.symbol}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Protocol Fee</span>
@@ -489,38 +473,62 @@ export default function SunnySwap() {
         {/* Recent Activity */}
         <div className="mt-6 bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-3xl shadow-2xl backdrop-blur-xl">
           <div className="p-6 pb-4">
-            <h3 className="text-xl font-bold text-white">Recent Activity</h3>
+            <h3 className="text-xl font-bold text-white">Your Swap History</h3>
           </div>
           <div className="px-6 pb-6">
-            <div className="space-y-3">
-              {mockRecentSwaps.map((tx, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-white">{tx.from}</span>
-                      <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-sm font-medium text-white">{tx.to}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        tx.status === 'completed'
-                          ? 'bg-green-500/20 text-green-400'
-                          : tx.status === 'pending'
-                            ? 'bg-yellow-500/20 text-yellow-400'
-                            : 'bg-red-500/20 text-red-400'
-                      }`}>
-                        {tx.status}
-                      </span>
+            {isLoadingHistory ? (
+              <div className="flex justify-center items-center py-8">
+                <span className="inline-block h-6 w-6 border-2 border-orange-400/30 border-t-orange-400 rounded-full animate-spin"></span>
+              </div>
+            ) : orderHistory.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No swaps yet. Create your first atomic swap!
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {orderHistory.map((order) => (
+                  <div key={order.hash} className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-white">{order.from}</span>
+                        <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-sm font-medium text-white">{order.to}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          order.statusLabel === 'completed'
+                            ? 'bg-green-500/20 text-green-400'
+                            : order.statusLabel === 'pending'
+                              ? 'bg-yellow-500/20 text-yellow-400'
+                              : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {order.status === 'order_created' && 'Creating...'}
+                          {order.status === 'src_escrow_deployed' && 'Escrow Created'}
+                          {order.status === 'escrows_deployed' && 'Ready to Claim'}
+                          {order.status === 'claimed' && 'Completed'}
+                          {order.status === 'cancelled' && 'Cancelled'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        {order.hash.slice(0, 10)}...{order.hash.slice(-8)}
+                      </div>
+                      {order.srcDeployHash && (
+                        <a
+                          href={`https://sepolia.etherscan.io/tx/${order.srcDeployHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
+                        >
+                          View on Etherscan →
+                        </a>
+                      )}
                     </div>
-                    <div className="text-xs text-muted-foreground font-mono">
-                      {tx.transactionHash.slice(0, 10)}...{tx.transactionHash.slice(-8)}
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-white">{order.fromAmount}</div>
+                      <div className="text-xs text-muted-foreground">{formatTimeAgo(order.createdAt)}</div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-white">{tx.amount}</div>
-                    <div className="text-xs text-muted-foreground">{tx.time}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -20,7 +20,8 @@ export async function GET(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    const parsed = JSON.parse(data);
+    // Handle both string and object formats from Redis
+    const parsed = typeof data === 'string' ? JSON.parse(data) : data;
     return NextResponse.json(parsed);
   } catch (err) {
     console.error("Error fetching order:", err);

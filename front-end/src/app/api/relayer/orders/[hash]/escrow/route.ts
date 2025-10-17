@@ -26,7 +26,8 @@ export async function POST(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    const order = JSON.parse(data);
+    // Handle both string and object formats from Redis
+    const order = typeof data === 'string' ? JSON.parse(data) : data;
     order.srcEscrowAddress = srcEscrowAddress;
     order.dstEscrowAddress = dstEscrowAddress;
     order.srcImmutables = srcImmutables;
