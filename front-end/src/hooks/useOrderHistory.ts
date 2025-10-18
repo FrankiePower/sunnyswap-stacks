@@ -55,9 +55,14 @@ export function useOrderHistory() {
 
             if (!isUserOrder) return null;
 
+            // Only show completed or claimed swaps
+            if (order.status !== 'completed' && order.status !== 'claimed') {
+              return null;
+            }
+
             // Determine status label
             let statusLabel: 'pending' | 'completed' | 'failed' = 'pending';
-            if (order.status === 'escrows_deployed' || order.status === 'claimed') {
+            if (order.status === 'escrows_deployed' || order.status === 'claimed' || order.status === 'completed') {
               statusLabel = 'completed';
             } else if (order.status === 'cancelled') {
               statusLabel = 'failed';
@@ -95,8 +100,8 @@ export function useOrderHistory() {
 
     fetchOrders();
 
-    // Refresh every 10 seconds
-    const interval = setInterval(fetchOrders, 10000);
+    // Refresh every 3 minutes to avoid excessive API calls
+    const interval = setInterval(fetchOrders, 180000);
     return () => clearInterval(interval);
   }, [evmAddress, stacksAddress]);
 

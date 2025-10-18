@@ -31,7 +31,7 @@ export default function SunnySwap() {
   const contracts = useContracts();
 
   // Use real data hooks
-  const { tokens, isLoading: isLoadingBalances } = useBalances();
+  const { tokens, isLoading: isLoadingBalances, refresh: refreshBalances } = useBalances();
   const { convert, priceData, isLoading: isLoadingPrices } = usePriceConversion();
   const { orders: orderHistory, isLoading: isLoadingHistory } = useOrderHistory();
 
@@ -44,6 +44,7 @@ export default function SunnySwap() {
   const [isSwapping, setIsSwapping] = useState(false);
   const [swapStatus, setSwapStatus] = useState('');
   const [currentOrder, setCurrentOrder] = useState<AtomicSwapOrder | null>(null);
+  const [currentOrderHash, setCurrentOrderHash] = useState<string>('');
   const [txHash, setTxHash] = useState('');
   const [showSettings, setShowSettings] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -163,11 +164,12 @@ export default function SunnySwap() {
         },
       };
 
-      setCurrentOrder(order);
-      setSwapStatus('Submitting order to relayer...');
-
       // Step 3: Submit order to relayer
       const orderHash = ethers.keccak256(ethers.toUtf8Bytes(orderId));
+
+      setCurrentOrder(order);
+      setCurrentOrderHash(orderHash);
+      setSwapStatus('Submitting order to relayer...');
 
       const response = await fetch('/api/relayer/orders', {
         method: 'POST',
@@ -201,7 +203,7 @@ export default function SunnySwap() {
           const status = await statusResponse.json();
           console.log('📊 Order status:', status);
 
-          if (status.status === 'escrows_deployed' && status.srcEscrowAddress) {
+          if (status.status === 'escrows_deployed') {
             setTxHash(status.srcDeployHash || '');
             setSwapStatus('Escrow deployed successfully!');
             setShowSuccessModal(true);
@@ -617,13 +619,48 @@ export default function SunnySwap() {
                   <p className="text-orange-400 font-bold mb-2">🎁 Ready to Claim!</p>
                   <p className="text-sm text-white/80 mb-3">
                     Both escrows are deployed. Click below to claim your STX by revealing the secret.
+                    You&apos;ll need to approve the transaction in your Hiro Wallet.
                   </p>
                   <ClaimButton
                     orderSecret={currentOrder.secret}
                     resolverAddress="ST3QA58TFC73X12Z2B809AMS6V14Y0FA4VR2TTYMF"
-                    onSuccess={(txid) => {
-                      console.log('✅ Claimed! Txid:', txid);
-                      alert(`🎉 SUCCESS! Secret revealed on-chain.\n\nTransaction: ${txid}\n\nThe resolver will now claim the EVM escrow automatically.`);
+                    onSuccess={async (txid) => {
+                      console.log('✅ STX Claimed! Txid:', txid);
+                      console.log('🤖 Triggering resolver to claim EVM escrow...');
+
+                      try {
+                        // Trigger resolver to claim ETH escrow using the revealed secret
+                        const claimResponse = await fetch(`/api/resolver/claim/${currentOrderHash}`, {
+                          method: 'POST',
+                        });
+
+                        if (claimResponse.ok) {
+                          const claimResult = await claimResponse.json();
+                          console.log('✅ Resolver claimed EVM escrow:', claimResult.evmClaimHash);
+
+                          // Refresh balances after successful swap
+                          setTimeout(() => {
+                            console.log('🔄 Refreshing balances...');
+                            refreshBalances();
+                          }, 3000); // Wait 3 seconds for transactions to confirm
+
+                          alert(`🎉 ATOMIC SWAP COMPLETE!\n\nSTX Claim: ${txid}\nEVM Claim: ${claimResult.evmClaimHash}\n\nYou received your STX and the resolver claimed the ETH!`);
+                        } else {
+                          console.warn('⚠️ Resolver claim may have failed, but your STX is claimed');
+
+                          // Still refresh balances even if resolver claim failed
+                          setTimeout(() => refreshBalances(), 3000);
+
+                          alert(`✅ Your STX has been claimed!\n\nTransaction: ${txid}\n\nNote: Resolver claim may still be processing.`);
+                        }
+                      } catch (error) {
+                        console.error('❌ Resolver claim error:', error);
+
+                        // Refresh balances anyway
+                        setTimeout(() => refreshBalances(), 3000);
+
+                        alert(`✅ Your STX has been claimed!\n\nTransaction: ${txid}\n\nNote: Resolver will claim the EVM escrow automatically.`);
+                      }
                     }}
                     onError={(error) => {
                       console.error('❌ Claim failed:', error);

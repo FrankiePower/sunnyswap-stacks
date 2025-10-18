@@ -32,6 +32,14 @@ export async function GET(
       dstEscrowAddress,
     } = parsed;
 
+    console.log(`[Status API] Order ${hash}:`, {
+      status,
+      hasSrcEscrowAddress: !!srcEscrowAddress,
+      hasSrcDeployHash: !!srcDeployHash,
+      srcEscrowAddress: srcEscrowAddress || 'undefined',
+      srcDeployHash: srcDeployHash || 'undefined',
+    });
+
     return NextResponse.json({
       hash,
       status,

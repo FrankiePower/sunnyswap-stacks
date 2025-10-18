@@ -43,10 +43,16 @@ export const HiroWalletProvider: FC<ProviderProps> = ({ children }) => {
   useEffect(() => {
     const loadStacksConnect = async () => {
       try {
-        setMounted(true);
-        setIsWalletConnected(isConnected());
+        // Wait for window.StacksProvider to be ready to avoid injection conflicts
+        if (typeof window !== 'undefined') {
+          // Small delay to ensure EVM wallet providers are fully initialized first
+          await new Promise(resolve => setTimeout(resolve, 100));
+          setMounted(true);
+          setIsWalletConnected(isConnected());
+        }
       } catch (error) {
         console.error('Failed to load @stacks/connect:', error);
+        setMounted(true); // Still mount even if there's an error
       }
     };
 

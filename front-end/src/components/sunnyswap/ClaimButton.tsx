@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { openContractCall } from '@stacks/connect';
-import { bufferCV, principalCV, PostConditionMode, AnchorMode } from '@stacks/transactions';
-import { STACKS_TESTNET } from '@stacks/network';
+import { request } from '@stacks/connect';
+import { bufferCV, principalCV } from '@stacks/transactions';
 
 interface ClaimButtonProps {
   orderSecret: string; // 0x-prefixed hex string
@@ -26,36 +25,34 @@ export function ClaimButton({ orderSecret, resolverAddress, onSuccess, onError }
       console.log('🎯 Claiming STX with secret...');
       console.log('Secret:', orderSecret.substring(0, 20) + '...');
       console.log('Resolver:', resolverAddress);
+      console.log('💡 Check your Hiro Wallet to approve the transaction!');
 
-      await openContractCall({
-        network: STACKS_TESTNET,
-        anchorMode: AnchorMode.Any,
-        contractAddress: 'ST3QA58TFC73X12Z2B809AMS6V14Y0FA4VR2TTYMF',
-        contractName: 'stx-htlc',
+      // Use the modern request API instead of deprecated openContractCall
+      const result = await request('stx_callContract', {
+        contract: 'ST3QA58TFC73X12Z2B809AMS6V14Y0FA4VR2TTYMF.stx-htlc',
         functionName: 'swap',
         functionArgs: [
           principalCV(resolverAddress),
           bufferCV(secretBuffer),
         ],
-        postConditionMode: PostConditionMode.Allow,
-        onFinish: (data: any) => {
-          console.log('✅ Claim transaction submitted:', data.txId);
-          console.log('🎉 SECRET REVEALED ON-CHAIN!');
-          console.log('View on explorer:', `https://explorer.hiro.so/txid/${data.txId}?chain=testnet`);
-
-          if (onSuccess) {
-            onSuccess(data.txId);
-          }
-          setClaiming(false);
-        },
-        onCancel: () => {
-          console.log('❌ Claim cancelled by user');
-          setClaiming(false);
-        },
+        network: 'testnet',
+        postConditionMode: 'allow', // Explicitly set to allow mode for as-contract transfers
+        postConditions: [],
       });
+
+      console.log('✅ Claim transaction submitted:', result.txid);
+      console.log('🎉 SECRET REVEALED ON-CHAIN!');
+      console.log('View on explorer:', `https://explorer.hiro.so/txid/${result.txid}?chain=testnet`);
+
+      if (onSuccess) {
+        onSuccess(result.txid);
+      }
+      setClaiming(false);
 
     } catch (error) {
       console.error('❌ Claim error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to claim: ${errorMessage}\n\nPlease ensure Hiro Wallet is installed and connected.`);
       if (onError) {
         onError(error as Error);
       }
@@ -69,7 +66,7 @@ export function ClaimButton({ orderSecret, resolverAddress, onSuccess, onError }
       disabled={claiming}
       className="w-full bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700"
     >
-      {claiming ? '🔄 Claiming STX...' : '🎁 Claim My STX'}
+      {claiming ? '🔄 Check Hiro Wallet to Approve...' : '🎁 Claim My STX'}
     </Button>
   );
 }
