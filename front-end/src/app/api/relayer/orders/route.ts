@@ -47,12 +47,23 @@ export async function POST(req: Request) {
     await redis.hSet("orders", hash, JSON.stringify(payload));
 
     // Trigger resolver to process order
-    fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/resolver/orders/${hash}/escrow`, {
+    const resolverUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/resolver/orders/${hash}/escrow`;
+    console.log(`[Relayer] Triggering resolver at: ${resolverUrl}`);
+
+    fetch(resolverUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-    }).catch(err => console.error("Failed to trigger resolver:", err));
+    })
+      .then(res => {
+        if (!res.ok) {
+          console.error(`[Relayer] Resolver returned status ${res.status}`);
+        } else {
+          console.log(`[Relayer] Resolver triggered successfully`);
+        }
+      })
+      .catch(err => console.error("[Relayer] Failed to trigger resolver:", err));
 
     return NextResponse.json({ success: true, hash });
   } catch (err) {
