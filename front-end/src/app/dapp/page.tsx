@@ -120,7 +120,7 @@ export default function SunnySwap() {
       setIsSwapping(true);
       setSwapStatus('Generating secret...');
 
-      // Step 1: Generate secret and hashlock (hashlocked-cli pattern)
+      // Step 1: Generate secret and hashlock
       const { secret, hashlock } = generateSecretAndHashlock();
       const orderId = generateOrderId();
 
@@ -128,75 +128,151 @@ export default function SunnySwap() {
       console.log('🔒 Hashlock:', hashlock);
       console.log('📄 Order ID:', orderId);
 
-      // Step 2: Create order data
+      // Step 2: Calculate amounts and fees
+      const ESCROW_AMOUNT = parseAmount(fromAmount);
+      const SAFETY_DEPOSIT = ethers.parseEther("0.001");
+      const CREATION_FEE = await contracts.factory.creationFee();
+      const TOTAL_REQUIRED = ESCROW_AMOUNT + SAFETY_DEPOSIT + CREATION_FEE;
+
+      console.log('💰 Escrow amount:', ethers.formatEther(ESCROW_AMOUNT), 'ETH');
+      console.log('🛡️ Safety deposit:', ethers.formatEther(SAFETY_DEPOSIT), 'ETH');
+      console.log('💸 Creation fee:', ethers.formatEther(CREATION_FEE), 'ETH');
+      console.log('📊 Total required:', ethers.formatEther(TOTAL_REQUIRED), 'ETH');
+
+      // Step 3: Build immutables for escrow
+      const orderHash = ethers.keccak256(ethers.toUtf8Bytes(orderId));
+      const now = Math.floor(Date.now() / 1000);
+      const dstWithdrawal = 0;
+      const dstPublicWithdrawal = 0;
+      const dstCancellation = 3600; // 1 hour
+
+      const timelocks = (BigInt(now) << BigInt(224)) |
+                       (BigInt(dstCancellation) << BigInt(64)) |
+                       (BigInt(dstPublicWithdrawal) << BigInt(32)) |
+                       BigInt(dstWithdrawal);
+
+      const RESOLVER_ADDRESS = "0x1B858848F8b57bA2169A60706D1c27569d369BC9"; // Replace with actual resolver address
+
+      const immutables = {
+        orderHash,
+        hashlock,
+        maker: BigInt(evmAddress), // User is the maker
+        taker: BigInt(RESOLVER_ADDRESS), // Resolver is the taker
+        token: BigInt(ethers.ZeroAddress), // ETH
+        amount: ESCROW_AMOUNT,
+        safetyDeposit: SAFETY_DEPOSIT,
+        timelocks
+      };
+
+      setSwapStatus('Please confirm transaction to lock your ETH...');
+
+      // Step 4: USER DIRECTLY CALLS createSrcEscrow TO LOCK THEIR ETH
+      console.log('🔒 Creating source escrow (user locking ETH)...');
+      const tx = await contracts.factory.createSrcEscrow(immutables, {
+        value: TOTAL_REQUIRED
+      });
+
+      setSwapStatus('Waiting for transaction confirmation...');
+      const receipt = await tx.wait();
+
+      console.log('✅ User locked ETH in escrow!');
+      console.log('📝 Transaction:', receipt.hash);
+      setTxHash(receipt.hash);
+
+      // Get the escrow address from the event
+      const escrowEvent = receipt.logs.find((log: { topics: string[] }) =>
+        log.topics[0] === ethers.id('SrcEscrowCreated(address,bytes32,address,address)')
+      );
+
+      let escrowAddress;
+      if (escrowEvent) {
+        const decoded = contracts.factory.interface.parseLog({
+          topics: escrowEvent.topics as string[],
+          data: escrowEvent.data
+        });
+        escrowAddress = decoded?.args[0];
+        console.log('📍 Escrow address:', escrowAddress);
+      } else {
+        // Fallback: calculate escrow address
+        escrowAddress = await contracts.factory.addressOfEscrowSrc(immutables);
+        console.log('📍 Calculated escrow address:', escrowAddress);
+      }
+
+      // Step 5: Create order data
       const order: AtomicSwapOrder = {
         orderId,
         timestamp: Date.now(),
         network: 'sepolia',
         chainId: chainId || 11155111,
-
         maker: {
           address: evmAddress,
           provides: {
             asset: 'ETH',
-            amount: parseAmount(fromAmount).toString(),
+            amount: ESCROW_AMOUNT.toString(),
           },
           wants: {
             asset: 'STX',
-            amount: parseAmount(toAmount, 6).toString(), // STX has 6 decimals
+            amount: parseAmount(toAmount, 6).toString(),
             address: testnetAddress,
           },
         },
-
         secret,
         hashlock,
-
         timelock: {
-          withdrawalPeriod: 0, // Immediate withdrawal
-          cancellationPeriod: 3600, // 1 hour
+          withdrawalPeriod: dstWithdrawal,
+          cancellationPeriod: dstCancellation,
         },
-
-        status: 'CREATED',
-
+        status: 'ESCROW_DEPLOYED',
         contracts: {
           stxEscrowFactory: contracts.factory.target as string,
-          resolver: contracts.resolver.target as string,
+          resolver: RESOLVER_ADDRESS,
         },
       };
 
-      // Step 3: Submit order to relayer
-      const orderHash = ethers.keccak256(ethers.toUtf8Bytes(orderId));
-
       setCurrentOrder(order);
       setCurrentOrderHash(orderHash);
-      setSwapStatus('Submitting order to relayer...');
+
+      // Step 6: Notify resolver about user's escrow
+      setSwapStatus('Notifying resolver...');
 
       const response = await fetch('/api/relayer/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           hash: orderHash,
-          hashLock: { sha256: hashlock.slice(2) }, // Remove 0x prefix
+          hashLock: { sha256: hashlock.slice(2) },
           srcChainId: chainId || 11155111,
-          dstChainId: 5230, // Stacks testnet
+          dstChainId: 5230,
           order,
           stacksAddress: testnetAddress,
+          srcEscrowAddress: escrowAddress,
+          srcDeployHash: receipt.hash,
+          srcImmutables: {
+            orderHash: immutables.orderHash,
+            hashlock: immutables.hashlock,
+            maker: immutables.maker.toString(),
+            taker: immutables.taker.toString(),
+            token: immutables.token.toString(),
+            amount: immutables.amount.toString(),
+            safetyDeposit: immutables.safetyDeposit.toString(),
+            timelocks: immutables.timelocks.toString()
+          }
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to submit order to relayer');
+        throw new Error('Failed to notify resolver');
       }
 
-      console.log('✅ Order submitted to relayer');
-      setSwapStatus('Waiting for resolver to create escrow...');
+      console.log('✅ Resolver notified');
+      setSwapStatus('Waiting for resolver to create Stacks HTLC...');
 
-      // Step 4: Poll for escrow deployment
+      // Step 7: Poll for Stacks HTLC deployment
       let attempts = 0;
-      const maxAttempts = 60; // 5 minutes max
+      const maxAttempts = 60;
 
       while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+        await new Promise(resolve => setTimeout(resolve, 5000));
 
         const statusResponse = await fetch(`/api/relayer/orders/${orderHash}/status`);
         if (statusResponse.ok) {
@@ -204,19 +280,18 @@ export default function SunnySwap() {
           console.log('📊 Order status:', status);
 
           if (status.status === 'escrows_deployed') {
-            setTxHash(status.srcDeployHash || '');
-            setSwapStatus('Escrow deployed successfully!');
+            setSwapStatus('Ready to claim STX!');
             setShowSuccessModal(true);
             break;
           }
         }
 
         attempts++;
-        setSwapStatus(`Waiting for escrow... (${attempts * 5}s)`);
+        setSwapStatus(`Waiting for Stacks HTLC... (${attempts * 5}s)`);
       }
 
       if (attempts >= maxAttempts) {
-        throw new Error('Timeout waiting for escrow deployment');
+        throw new Error('Timeout waiting for Stacks HTLC');
       }
 
     } catch (error) {
@@ -632,11 +707,21 @@ export default function SunnySwap() {
                         // Trigger resolver to claim ETH escrow using the revealed secret
                         const claimResponse = await fetch(`/api/resolver/claim/${currentOrderHash}`, {
                           method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            claimTxid: txid, // Pass the user's claim transaction ID
+                          }),
                         });
 
                         if (claimResponse.ok) {
                           const claimResult = await claimResponse.json();
                           console.log('✅ Resolver claimed EVM escrow:', claimResult.evmClaimHash);
+
+                          // Clear the current order to stop showing "Ready to Claim"
+                          setCurrentOrder(null);
+                          setCurrentOrderHash('');
+                          setSwapStatus('');
+                          setIsSwapping(false);
 
                           // Refresh balances after successful swap
                           setTimeout(() => {
@@ -648,6 +733,12 @@ export default function SunnySwap() {
                         } else {
                           console.warn('⚠️ Resolver claim may have failed, but your STX is claimed');
 
+                          // Clear the current order
+                          setCurrentOrder(null);
+                          setCurrentOrderHash('');
+                          setSwapStatus('');
+                          setIsSwapping(false);
+
                           // Still refresh balances even if resolver claim failed
                           setTimeout(() => refreshBalances(), 3000);
 
@@ -655,6 +746,12 @@ export default function SunnySwap() {
                         }
                       } catch (error) {
                         console.error('❌ Resolver claim error:', error);
+
+                        // Clear the current order
+                        setCurrentOrder(null);
+                        setCurrentOrderHash('');
+                        setSwapStatus('');
+                        setIsSwapping(false);
 
                         // Refresh balances anyway
                         setTimeout(() => refreshBalances(), 3000);

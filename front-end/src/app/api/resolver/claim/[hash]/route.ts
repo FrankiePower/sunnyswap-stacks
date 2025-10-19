@@ -11,13 +11,16 @@ const sepoliaRpcUrl = process.env.SEPOLIA_RPC_URL;
  * Monitors Stacks transaction, extracts secret, claims EVM escrow
  */
 export async function POST(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ hash: string }> }
 ) {
   try {
     const { hash } = await context.params;
+    const body = await req.json().catch(() => ({}));
+    const claimTxid = body.claimTxid; // User's claim transaction ID
 
     console.log(`[Resolver Claim] Processing order: ${hash}`);
+    console.log(`[Resolver Claim] Claim txid:`, claimTxid);
 
     // Fetch order from Redis
     await connectRedis();
@@ -30,14 +33,12 @@ export async function POST(
       );
     }
 
-    const order = JSON.parse(orderData);
+    // Handle both string and object formats
+    const order = typeof orderData === 'string' ? JSON.parse(orderData) : orderData;
 
-    if (!order.dstEscrowTxid) {
-      return NextResponse.json(
-        { error: "Stacks HTLC not yet deployed" },
-        { status: 400 }
-      );
-    }
+    console.log('[Resolver Claim] Order data from Redis:', JSON.stringify(order, null, 2));
+    console.log('[Resolver Claim] srcEscrowAddress:', order.srcEscrowAddress);
+    console.log('[Resolver Claim] Order keys:', Object.keys(order));
 
     if (order.status === 'claimed' || order.status === 'completed') {
       return NextResponse.json({
@@ -47,10 +48,17 @@ export async function POST(
       });
     }
 
-    console.log('[Resolver Claim] Extracting secret from Stacks tx:', order.dstEscrowTxid);
+    if (!claimTxid) {
+      return NextResponse.json(
+        { error: "Claim transaction ID required" },
+        { status: 400 }
+      );
+    }
 
-    // Extract secret from Stacks transaction
-    const secret = await extractSecretFromStacksTx(order.dstEscrowTxid);
+    console.log('[Resolver Claim] Extracting secret from user claim tx:', claimTxid);
+
+    // Extract secret from the USER's claim transaction
+    const secret = await extractSecretFromStacksTx(claimTxid);
 
     console.log('[Resolver Claim] Secret extracted!');
 
@@ -61,9 +69,18 @@ export async function POST(
     // Claim EVM escrow
     console.log('[Resolver Claim] Claiming EVM escrow...');
 
+    if (!order.srcImmutables) {
+      return NextResponse.json(
+        { error: "Escrow immutables not found" },
+        { status: 400 }
+      );
+    }
+
     const result = await claimEvmEscrow({
       escrowAddress: order.srcEscrowAddress,
       secret,
+      immutables: order.srcImmutables,
+      deployTxHash: order.srcDeployHash,
       resolverPrivateKey,
       rpcUrl: sepoliaRpcUrl,
     });

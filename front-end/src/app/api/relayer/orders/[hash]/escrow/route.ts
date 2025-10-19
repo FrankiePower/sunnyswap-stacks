@@ -16,7 +16,10 @@ export async function POST(
       dstImmutables,
       srcDeployHash,
       dstDeployHash,
+      dstEscrowTxid,
+      dstExpirationHeight,
       htlcScript,
+      status,
     } = await req.json();
 
     await connectRedis();
@@ -28,14 +31,24 @@ export async function POST(
 
     // Handle both string and object formats from Redis
     const order = typeof data === 'string' ? JSON.parse(data) : data;
-    order.srcEscrowAddress = srcEscrowAddress;
-    order.dstEscrowAddress = dstEscrowAddress;
-    order.srcImmutables = srcImmutables;
-    order.dstImmutables = dstImmutables;
-    order.srcDeployHash = srcDeployHash;
-    order.dstDeployHash = dstDeployHash;
-    order.htlcScript = htlcScript;
-    order.status = "escrows_deployed";
+
+    console.log('[Escrow Update] Received srcEscrowAddress:', srcEscrowAddress);
+    console.log('[Escrow Update] Order before update:', JSON.stringify(order, null, 2));
+
+    // Only update fields that are provided (prevent overwriting with undefined)
+    if (srcEscrowAddress !== undefined) order.srcEscrowAddress = srcEscrowAddress;
+    if (dstEscrowAddress !== undefined) order.dstEscrowAddress = dstEscrowAddress;
+    if (srcImmutables !== undefined) order.srcImmutables = srcImmutables;
+    if (dstImmutables !== undefined) order.dstImmutables = dstImmutables;
+    if (srcDeployHash !== undefined) order.srcDeployHash = srcDeployHash;
+    if (dstDeployHash !== undefined) order.dstDeployHash = dstDeployHash;
+    if (dstEscrowTxid !== undefined) order.dstEscrowTxid = dstEscrowTxid;
+    if (dstExpirationHeight !== undefined) order.dstExpirationHeight = dstExpirationHeight;
+    if (htlcScript !== undefined) order.htlcScript = htlcScript;
+    if (status !== undefined) order.status = status;
+
+    console.log('[Escrow Update] Order after update:', JSON.stringify(order, null, 2));
+    console.log('[Escrow Update] Saving to Redis with hash:', hash);
 
     await redis.hSet("orders", hash, JSON.stringify(order));
 

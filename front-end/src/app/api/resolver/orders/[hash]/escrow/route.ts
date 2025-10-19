@@ -1,11 +1,7 @@
 // app/api/resolver/orders/[hash]/escrow/route.ts
 import { NextResponse } from "next/server";
-import { ethers } from "ethers";
-import { CONTRACT_ADDRESSES, ABIS } from "@/contracts";
 import { registerSwapIntent, calculateExpirationHeight } from "@/lib/stacks-resolver";
 
-const resolverPrivateKey = process.env.RESOLVER_PRIVATE_KEY;
-const sepoliaRpcUrl = process.env.SEPOLIA_RPC_URL;
 const stacksResolverPrivateKey = process.env.STACKS_RESOLVER_PRIVATE_KEY;
 
 export async function POST(
@@ -38,99 +34,28 @@ export async function POST(
       dstChainId,
       order,
       stacksAddress,
+      srcEscrowAddress,
+      srcDeployHash,
+      srcImmutables,
     } = await response.json();
 
     console.log("[Resolver] Order details:", { srcChainId, dstChainId });
+    console.log("[Resolver] User's escrow:", srcEscrowAddress);
+    console.log("[Resolver] Deploy tx:", srcDeployHash);
 
     // For MVP: Only handle EVM → STX swaps
-    // Resolver creates EVM escrow on behalf of user
+    // User has already locked their ETH in the source escrow
+    // Resolver only needs to create the Stacks HTLC
     if (srcChainId === 11155111) { // Sepolia
-      console.log("[Resolver] Creating EVM source escrow...");
+      console.log("[Resolver] User has locked ETH in escrow:", srcEscrowAddress);
+      console.log("[Resolver] User's immutables:", srcImmutables);
 
-      if (!resolverPrivateKey || !sepoliaRpcUrl) {
-        throw new Error("Missing resolver configuration");
+      // Verify we have the required information
+      if (!srcEscrowAddress || !srcImmutables) {
+        throw new Error("Missing source escrow information from user");
       }
 
-      // Pass chainId directly to prevents network detection timeout
-      const provider = new ethers.JsonRpcProvider(sepoliaRpcUrl, srcChainId);
-      const resolverWallet = new ethers.Wallet(resolverPrivateKey, provider);
-
-      // @ts-expect-error - Dynamic chain ID access
-      const factoryAddress = CONTRACT_ADDRESSES[srcChainId].stxEscrowFactory;
-      const factory = new ethers.Contract(
-        factoryAddress,
-        ABIS.stxEscrowFactory,
-        resolverWallet
-      );
-
-      // Construct immutables from order
-      const now = Math.floor(Date.now() / 1000);
-      const SAFETY_DEPOSIT = ethers.parseEther("0.001");
-      const ESCROW_AMOUNT = BigInt(order.maker.provides.amount);
-      const CREATION_FEE = await factory.creationFee();
-      const TOTAL_REQUIRED = ESCROW_AMOUNT + SAFETY_DEPOSIT + CREATION_FEE;
-
-      // Pack timelocks
-      const dstWithdrawal = order.timelock.withdrawalPeriod;
-      const dstPublicWithdrawal = order.timelock.withdrawalPeriod * 2;
-      const dstCancellation = order.timelock.cancellationPeriod;
-
-      const timelocks = (BigInt(now) << BigInt(224)) |
-                       (BigInt(dstCancellation) << BigInt(64)) |
-                       (BigInt(dstPublicWithdrawal) << BigInt(32)) |
-                       BigInt(dstWithdrawal);
-
-      const immutables = {
-        orderHash: ethers.keccak256(ethers.toUtf8Bytes(hash)),
-        hashlock: '0x' + hashLock.sha256,
-        maker: BigInt(order.maker.address),
-        taker: BigInt(resolverWallet.address), // Resolver is taker
-        token: BigInt(ethers.ZeroAddress), // ETH
-        amount: ESCROW_AMOUNT,
-        safetyDeposit: SAFETY_DEPOSIT,
-        timelocks: timelocks
-      };
-
-      console.log("[Resolver] Creating source escrow with immutables:", immutables);
-
-      // Create source escrow
-      const tx = await factory.createSrcEscrow(immutables, {
-        value: TOTAL_REQUIRED
-      });
-
-      console.log("[Resolver] Transaction submitted:", tx.hash);
-      const receipt = await tx.wait();
-      console.log("[Resolver] Transaction confirmed in block:", receipt.blockNumber);
-
-      // Calculate escrow address
-      const escrowAddress = await factory.addressOfEscrowSrc(immutables);
-      console.log("[Resolver] Source escrow address:", escrowAddress);
-
-      // Update order in Redis
-      await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/relayer/orders/${hash}/escrow`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          srcEscrowAddress: escrowAddress,
-          srcDeployHash: tx.hash,
-          srcImmutables: {
-            ...immutables,
-            maker: immutables.maker.toString(),
-            taker: immutables.taker.toString(),
-            token: immutables.token.toString(),
-            amount: immutables.amount.toString(),
-            safetyDeposit: immutables.safetyDeposit.toString(),
-            timelocks: immutables.timelocks.toString()
-          },
-          status: "src_escrow_deployed"
-        }),
-      });
-
-      console.log("[Resolver] Successfully deployed source escrow");
-
-      // Now create Stacks HTLC (destination escrow)
+      // Create Stacks HTLC (resolver locks STX)
       console.log("[Resolver] Creating Stacks HTLC...");
 
       if (!stacksResolverPrivateKey) {
@@ -169,35 +94,34 @@ export async function POST(
           }),
         });
 
-        console.log("[Resolver] Both escrows deployed successfully");
+        console.log("[Resolver] Stacks HTLC created successfully!");
+        console.log("[Resolver] User locked EVM escrow, Resolver locked Stacks HTLC");
 
         return NextResponse.json({
           success: true,
-          srcEscrowAddress: escrowAddress,
-          srcTxHash: tx.hash,
-          dstTxid: stacksResult.txid,
+          srcEscrowAddress, // User's escrow
+          srcTxHash: srcDeployHash, // User's deploy tx
+          dstTxid: stacksResult.txid, // Resolver's Stacks HTLC
           dstExpirationHeight: expirationHeight,
         });
 
       } catch (stacksError) {
         console.error("[Resolver] Stacks HTLC creation failed:", stacksError);
 
-        // Update status to indicate partial success
+        // Update status to indicate failure
         await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/relayer/orders/${hash}/escrow`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            status: "src_escrow_deployed_dst_failed",
+            status: "dst_failed",
             dstError: stacksError instanceof Error ? stacksError.message : String(stacksError)
           }),
         });
 
         return NextResponse.json({
           success: false,
-          srcEscrowAddress: escrowAddress,
-          srcTxHash: tx.hash,
           error: "Stacks HTLC creation failed",
           details: stacksError instanceof Error ? stacksError.message : String(stacksError)
         }, { status: 500 });

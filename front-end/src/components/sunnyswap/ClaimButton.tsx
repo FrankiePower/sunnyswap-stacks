@@ -40,6 +40,10 @@ export function ClaimButton({ orderSecret, resolverAddress, onSuccess, onError }
         postConditions: [],
       });
 
+      if (!result.txid) {
+        throw new Error('No transaction ID returned from wallet');
+      }
+
       console.log('✅ Claim transaction submitted:', result.txid);
       console.log('🎉 SECRET REVEALED ON-CHAIN!');
       console.log('View on explorer:', `https://explorer.hiro.so/txid/${result.txid}?chain=testnet`);

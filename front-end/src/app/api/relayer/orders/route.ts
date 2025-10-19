@@ -13,6 +13,9 @@ export async function POST(req: Request) {
       extension,
       signature,
       stacksAddress,
+      srcEscrowAddress,
+      srcDeployHash,
+      srcImmutables,
     } = await req.json();
 
     if (
@@ -33,6 +36,9 @@ export async function POST(req: Request) {
       extension,
       signature,
       stacksAddress,
+      srcEscrowAddress,
+      srcDeployHash,
+      srcImmutables,
       status: "order_created",
       createdAt: Date.now(),
     };

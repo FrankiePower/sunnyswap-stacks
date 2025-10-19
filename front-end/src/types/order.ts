@@ -37,7 +37,7 @@ export interface AtomicSwapOrder {
     cancellationPeriod: number;
   };
 
-  status: "CREATED" | "FILLED" | "FUNDED" | "COMPLETED" | "CANCELLED";
+  status: "CREATED" | "FILLED" | "FUNDED" | "ESCROW_DEPLOYED" | "COMPLETED" | "CANCELLED";
 
   contracts: {
     stxEscrowFactory: string;
